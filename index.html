@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#1e2d4a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Ma Bedethèque</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --navy: #1e2d4a; --navy-light: #2a3d5e; --navy-dark: #131d30;
+  --red: #e63946; --teal: #2ec4b6; --yellow: #f4b942;
+  --white: #ffffff; --text-muted: #8fa3c0;
+  --card-bg: #243550; --card-border: #2e4060;
+  --font-display: "Bangers", cursive; --font-body: "Nunito", sans-serif;
+  --radius: 16px; --radius-sm: 10px; --tab-height: 68px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: var(--font-body); background: var(--navy-dark); color: var(--white); min-height: 100vh; max-width: 480px; margin: 0 auto; overflow-x: hidden; }
+.app-header { background: var(--navy); border-bottom: 1px solid var(--card-border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.header-logo img { height: 42px; }
+.tab-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--navy); border-top: 1px solid var(--card-border); display: flex; height: var(--tab-height); z-index: 200; }
+.tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; font-family: var(--font-body); font-size: 9px; font-weight: 700; transition: color 0.18s; padding: 6px 2px; }
+.tab-item .ti { font-size: 20px; transition: transform 0.18s; }
+.tab-item.active { color: var(--teal); }
+.tab-item.active .ti { transform: scale(1.15); }
+.page { display: none; padding: 16px 14px calc(var(--tab-height) + 16px); }
+.page.active { display: block; }
+.section-title { font-family: var(--font-display); font-size: 22px; letter-spacing: 1px; margin-bottom: 14px; }
+.section-title span { color: var(--yellow); }
+.card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.badge-teal { background: rgba(46,196,182,0.2); color: var(--teal); }
+.badge-red { background: rgba(230,57,70,0.2); color: var(--red); }
+.badge-yellow { background: rgba(244,185,66,0.2); color: var(--yellow); }
+.badge-gray { background: rgba(143,163,192,0.2); color: var(--text-muted); }
+.album-card { display: flex; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 12px; margin-bottom: 9px; cursor: pointer; transition: border-color 0.18s; }
+.album-card:hover { border-color: var(--teal); }
+.album-cover { width: 52px; height: 72px; border-radius: 6px; background: var(--navy); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 26px; overflow: hidden; }
+.album-cover img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+.album-info { flex: 1; min-width: 0; }
+.album-title { font-weight: 800; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.album-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+.album-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.argus-score { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; }
+.argus-value { font-family: var(--font-display); font-size: 22px; line-height: 1; }
+.argus-label { font-size: 9px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em; }
+.search-bar { display: flex; align-items: center; gap: 8px; background: var(--card-bg); border: 1.5px solid var(--card-border); border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 12px; }
+.search-bar input { flex: 1; background: none; border: none; outline: none; color: var(--white); font-family: var(--font-body); font-size: 14px; }
+.search-bar input::placeholder { color: var(--text-muted); }
+.filter-row { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 3px; margin-bottom: 12px; scrollbar-width: none; }
+.filter-row::-webkit-scrollbar { display: none; }
+.filter-chip { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--card-border); background: none; color: var(--text-muted); font-family: var(--font-body); font-weight: 700; font-size: 11px; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
+.filter-chip.active { background: var(--teal); border-color: var(--teal); color: var(--navy-dark); }
+.fab { position: fixed; bottom: calc(var(--tab-height) + 14px); right: 14px; width: 54px; height: 54px; border-radius: 50%; background: var(--red); color: var(--white); border: none; font-size: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 18px rgba(230,57,70,0.4); z-index: 150; }
+.fab:active { transform: scale(0.92); }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-title { font-family: var(--font-display); font-size: 20px; color: var(--white); margin-bottom: 6px; letter-spacing: 1px; }
+.empty-sub { font-size: 13px; line-height: 1.6; }
+.toast { position: fixed; top: 72px; left: 50%; transform: translateX(-50%) translateY(-20px); background: var(--card-bg); border: 1px solid var(--teal); border-radius: var(--radius-sm); color: var(--white); font-weight: 700; font-size: 13px; padding: 10px 18px; z-index: 1000; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { border-color: var(--red); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(13,19,30,0.88); z-index: 500; display: none; align-items: flex-end; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--navy); border-radius: var(--radius) var(--radius) 0 0; border: 1px solid var(--card-border); border-bottom: none; width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto; padding: 22px 18px 40px; animation: slideUp 0.28s ease; }
+@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-title { font-family: var(--font-display); font-size: 22px; letter-spacing: 1px; }
+.modal-close { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--card-bg); color: var(--white); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 5px; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; background: var(--navy); border: 1.5px solid var(--card-border); border-radius: var(--radius-sm); color: var(--white); font-family: var(--font-body); font-size: 14px; padding: 10px 12px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--teal); }
+.form-group select option { background: var(--navy); }
+.form-group textarea { resize: vertical; min-height: 70px; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 13px; border: none; border-radius: var(--radius-sm); font-family: var(--font-body); font-weight: 800; font-size: 14px; cursor: pointer; transition: all 0.18s; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--red); color: var(--white); }
+.btn-teal { background: var(--teal); color: var(--navy-dark); }
+.btn-ghost { background: transparent; color: var(--text-muted); border: 1.5px solid var(--card-border); }
+.btn-sm { padding: 7px 12px; font-size: 12px; width: auto; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--card-border); }
+.toggle-row:last-child { border-bottom: none; }
+.toggle-label { font-weight: 600; font-size: 13px; }
+.toggle-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--card-border); border-radius: 24px; cursor: pointer; transition: background 0.2s; }
+.toggle-slider:before { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--white); left: 3px; top: 3px; transition: transform 0.2s; }
+.toggle input:checked + .toggle-slider { background: var(--teal); }
+.toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+.loading { display: flex; align-items: center; justify-content: center; padding: 36px; color: var(--text-muted); font-size: 13px; gap: 8px; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--card-border); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.auteur-card { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 12px; margin-bottom: 9px; }
+.auteur-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--navy); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 18px; color: var(--teal); flex-shrink: 0; border: 2px solid var(--card-border); }
+.fav-btn { margin-left: auto; background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px; }
+.sortie-card { display: flex; gap: 12px; align-items: center; background: var(--card-bg); border: 1px solid var(--card-border); border-left: 4px solid var(--yellow); border-radius: var(--radius); padding: 12px; margin-bottom: 9px; }
+.sortie-date { display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--yellow); color: var(--navy-dark); border-radius: 9px; width: 46px; height: 50px; flex-shrink: 0; font-weight: 800; }
+.sortie-date .day { font-family: var(--font-display); font-size: 20px; line-height: 1; }
+.sortie-date .month { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; }
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 14px; text-align: center; }
+.stat-value { font-family: var(--font-display); font-size: 34px; letter-spacing: 1px; line-height: 1; margin-bottom: 3px; }
+.stat-label { font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.serie-progress { display: flex; gap: 3px; margin-top: 7px; flex-wrap: wrap; }
+.tome-dot { width: 11px; height: 11px; border-radius: 3px; }
+.tome-dot.owned { background: var(--teal); }
+.tome-dot.missing { background: var(--card-border); }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 2px; }
+</style>
+<body>
+<div class="toast" id="toast"></div>
+<div id="app">
+  <header class="app-header">
+    <div class="header-logo"><img src="data:image/png;base64,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" alt="Ma Bedethèque"/></div>
+  </header>
+  <div class="page active" id="page-collection">
+    <div class="section-title">Ma <span>Collection</span></div>
+    <div class="search-bar"><span>🔍</span><input type="text" id="col-search" placeholder="Chercher un titre, auteur..." oninput="filterCollection()"/></div>
+    <div class="filter-row">
+      <button class="filter-chip active" onclick="setFilter('all',this)">Tout</button>
+      <button class="filter-chip" onclick="setFilter('non_lu',this)">Non lu</button>
+      <button class="filter-chip" onclick="setFilter('en_cours',this)">En cours</button>
+      <button class="filter-chip" onclick="setFilter('lu',this)">Lu</button>
+      <button class="filter-chip" onclick="setFilter('bd',this)">BD</button>
+      <button class="filter-chip" onclick="setFilter('manga',this)">Manga</button>
+      <button class="filter-chip" onclick="setFilter('comics',this)">Comics</button>
+    </div>
+    <div id="collection-list"><div class="loading"><div class="spinner"></div> Chargement...</div></div>
+  </div>
+
+  <div class="page" id="page-series">
+    <div class="section-title">Mes <span>Series</span></div>
+    <div id="series-list"><div class="loading"><div class="spinner"></div> Chargement...</div></div>
+  </div>
+
+  <div class="page" id="page-auteurs">
+    <div class="section-title">Mes <span>Auteurs</span></div>
+    <div class="search-bar"><span>🔍</span><input type="text" id="aut-search" placeholder="Chercher un auteur..." oninput="filterAuteurs()"/></div>
+    <div id="auteurs-list"><div class="loading"><div class="spinner"></div> Chargement...</div></div>
+  </div>
+
+  <div class="page" id="page-wishlist">
+    <div class="section-title">Ma <span>Wishlist</span></div>
+    <div id="wishlist-list"><div class="loading"><div class="spinner"></div> Chargement...</div></div>
+  </div>
+
+  <div class="page" id="page-sorties">
+    <div class="section-title">Prochaines <span>Sorties</span></div>
+    <div id="sorties-list"><div class="loading"><div class="spinner"></div> Chargement...</div></div>
+  </div>
+
+  <div class="page" id="page-stats">
+    <div class="section-title">Mes <span>Stats</span></div>
+    <div id="stats-content"><div class="loading"><div class="spinner"></div> Chargement...</div></div>
+  </div>
+
+  <button class="fab" id="fab" onclick="openAddModal()">＋</button>
+
+  <nav class="tab-bar">
+    <button class="tab-item active" onclick="switchTab('collection',this)"><span class="ti">📚</span>Collection</button>
+    <button class="tab-item" onclick="switchTab('series',this)"><span class="ti">📖</span>Series</button>
+    <button class="tab-item" onclick="switchTab('auteurs',this)"><span class="ti">✏️</span>Auteurs</button>
+    <button class="tab-item" onclick="switchTab('wishlist',this)"><span class="ti">🛒</span>Wishlist</button>
+    <button class="tab-item" onclick="switchTab('sorties',this)"><span class="ti">🔔</span>Sorties</button>
+    <button class="tab-item" onclick="switchTab('stats',this)"><span class="ti">📊</span>Stats</button>
+  </nav>
+</div>
+
+<!-- MODAL ALBUM -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Ajouter un album</div><button class="modal-close" onclick="closeModal('modal-add')">✕</button></div>
+    <div style="margin-bottom:16px;">
+      <button class="btn btn-teal" onclick="startScan()" style="margin-bottom:10px;">📷 Scanner le code-barres</button>
+      <video id="scan-video" autoplay playsinline style="width:100%;border-radius:10px;display:none;"></video>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <input type="text" id="isbn-input" placeholder="ISBN manuellement..." style="flex:1;background:var(--navy);border:1.5px solid var(--card-border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:13px;padding:9px 11px;outline:none;"/>
+        <button class="btn btn-ghost btn-sm" onclick="lookupISBN()">Chercher</button>
+      </div>
+      <div id="isbn-result" style="display:none;background:var(--card-bg);border:1px solid var(--teal);border-radius:var(--radius-sm);padding:10px;margin-top:8px;font-size:12px;"></div>
+    </div>
+    <div class="form-group"><label>Titre *</label><input type="text" id="add-titre" placeholder="Titre de l album"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group"><label>Tome</label><input type="number" id="add-tome" placeholder="1"/></div>
+      <div class="form-group"><label>Annee</label><input type="number" id="add-annee" placeholder="2024"/></div>
+    </div>
+    <div class="form-group"><label>Auteur</label><input type="text" id="add-auteur" placeholder="Prenom Nom"/></div>
+    <div class="form-group"><label>Serie</label><input type="text" id="add-serie" placeholder="Nom de la serie"/></div>
+    <div class="form-group"><label>Editeur</label><input type="text" id="add-editeur" placeholder="Dargaud, Casterman..."/></div>
+    <div class="form-group"><label>Genre</label>
+      <select id="add-genre">
+        <option value="">Choisir</option>
+        <option value="bd">BD Franco-belge</option>
+        <option value="manga">Manga</option>
+        <option value="comics">Comics</option>
+        <option value="roman_graphique">Roman graphique</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Edition</label>
+      <select id="add-edition">
+        <option value="standard">Standard</option>
+        <option value="originale">Edition originale</option>
+        <option value="speciale">Edition speciale</option>
+        <option value="collector">Edition collector</option>
+        <option value="tirage_tete">Tirage de tete</option>
+        <option value="integrale">Integrale</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Etat lecture</label>
+      <select id="add-lecture">
+        <option value="non_lu">Non lu</option>
+        <option value="en_cours">En cours</option>
+        <option value="lu">Lu</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Etat physique</label>
+      <select id="add-etat">
+        <option value="neuf">Neuf</option>
+        <option value="bon">Bon etat</option>
+        <option value="moyen">Etat moyen</option>
+        <option value="mauvais">Mauvais etat</option>
+      </select>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="toggle-row">
+        <div><div class="toggle-label">Dedicace</div><div class="toggle-sub">Album avec dedicace</div></div>
+        <label class="toggle"><input type="checkbox" id="add-dedicace" onchange="document.getElementById('ded-detail').style.display=this.checked?'block':'none'"/><span class="toggle-slider"></span></label>
+      </div>
+      <div id="ded-detail" style="display:none;padding-top:8px;">
+        <input type="text" id="add-dedicace-detail" placeholder="Par qui, ou, quand..." style="width:100%;background:var(--navy);border:1.5px solid var(--card-border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:13px;padding:9px 11px;outline:none;"/>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Numerotee</div><div class="toggle-sub">Exemplaire numerote</div></div>
+        <label class="toggle"><input type="checkbox" id="add-numerotee"/><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="form-group"><label>N° exemplaire</label><input type="text" id="add-numero" placeholder="ex: 42/500"/></div>
+    <div class="form-group"><label>Localisation</label><input type="text" id="add-localisation" placeholder="Etagere A, boite 3..."/></div>
+    <div class="form-group"><label>Prix achat (EUR)</label><input type="number" id="add-prix" placeholder="0.00" step="0.01"/></div>
+    <div class="form-group"><label>Note</label>
+      <select id="add-note">
+        <option value="">Sans note</option>
+        <option value="1">1/5</option><option value="2">2/5</option><option value="3">3/5</option><option value="4">4/5</option><option value="5">5/5</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Commentaire</label><textarea id="add-commentaire" placeholder="Tes impressions..."></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')" style="flex:1;">Annuler</button>
+      <button class="btn btn-primary" onclick="saveAlbum()" style="flex:2;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETAIL -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Detail</div><button class="modal-close" onclick="closeModal('modal-detail')">✕</button></div>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<!-- MODAL AUTEUR -->
+<div class="modal-overlay" id="modal-auteur">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Ajouter un auteur</div><button class="modal-close" onclick="closeModal('modal-auteur')">✕</button></div>
+    <div class="form-group"><label>Nom *</label><input type="text" id="aut-nom" placeholder="Prenom Nom"/></div>
+    <div class="form-group"><label>Nationalite</label><input type="text" id="aut-nat" placeholder="Francaise, Japonaise..."/></div>
+    <div class="form-group"><label>Biographie courte</label><textarea id="aut-bio" placeholder="Quelques mots..."></textarea></div>
+    <div class="toggle-row" style="margin-bottom:18px;">
+      <div><div class="toggle-label">Auteur favori</div><div class="toggle-sub">Alertes pour ses nouvelles sorties</div></div>
+      <label class="toggle"><input type="checkbox" id="aut-favori"/><span class="toggle-slider"></span></label>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-auteur')" style="flex:1;">Annuler</button>
+      <button class="btn btn-primary" onclick="saveAuteur()" style="flex:2;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL WISHLIST -->
+<div class="modal-overlay" id="modal-wishlist">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Ajouter wishlist</div><button class="modal-close" onclick="closeModal('modal-wishlist')">✕</button></div>
+    <div class="form-group"><label>Titre *</label><input type="text" id="wl-titre" placeholder="Titre"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group"><label>Tome</label><input type="number" id="wl-tome" placeholder="1"/></div>
+      <div class="form-group"><label>Genre</label>
+        <select id="wl-genre"><option value="">Choisir</option><option value="bd">BD</option><option value="manga">Manga</option><option value="comics">Comics</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label>Auteur</label><input type="text" id="wl-auteur" placeholder="Prenom Nom"/></div>
+    <div class="form-group"><label>Editeur</label><input type="text" id="wl-editeur" placeholder="Editeur"/></div>
+    <div class="form-group"><label>Budget max (EUR)</label><input type="number" id="wl-prix" placeholder="25.00" step="0.01"/></div>
+    <div class="form-group"><label>Priorite</label>
+      <select id="wl-priorite"><option value="normale">Normale</option><option value="haute">Haute</option><option value="basse">Basse</option></select>
+    </div>
+    <div class="form-group"><label>Notes</label><textarea id="wl-notes" placeholder="Infos utiles..."></textarea></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-wishlist')" style="flex:1;">Annuler</button>
+      <button class="btn btn-primary" onclick="saveWishlist()" style="flex:2;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SORTIE -->
+<div class="modal-overlay" id="modal-sortie">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Ajouter sortie</div><button class="modal-close" onclick="closeModal('modal-sortie')">✕</button></div>
+    <div class="form-group"><label>Titre *</label><input type="text" id="so-titre" placeholder="Titre de l album ou serie"/></div>
+    <div class="form-group"><label>Date de sortie</label><input type="date" id="so-date" style="color-scheme:dark;"/></div>
+    <div class="form-group"><label>Auteur / Serie</label><input type="text" id="so-auteur" placeholder="Auteur ou nom de serie"/></div>
+    <div class="form-group"><label>Notes</label><textarea id="so-notes" placeholder="Infos..."></textarea></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-sortie')" style="flex:1;">Annuler</button>
+      <button class="btn btn-primary" onclick="saveSortie()" style="flex:2;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+<script>
+const SURL = "https://urqcjkzooehmnfyjuzae.supabase.co";
+const SKEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVycWNqa3pvb2VobW5meWp1emFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMzY1OTYsImV4cCI6MjA5MzcxMjU5Nn0.CPvGzSafr1nGtdMCCZ7WC1x9D2Ida9pGnPb-lo6oKWI";
+const sb = supabase.createClient(SURL, SKEY);
+const UID = "local-user-thomas";
+let allAlbums = [], allAuteurs = [], allWishlist = [];
+let currentFilter = "all";
+let scanStream = null, lastCoverUrl = null;
+
+window.addEventListener("DOMContentLoaded", async () => { await loadCollection(); });
+
+function switchTab(tab, el) {
+  document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  if (el) el.classList.add("active");
+  document.getElementById("page-" + tab).classList.add("active");
+  const fab = document.getElementById("fab");
+  if (tab === "collection") { fab.style.display = "flex"; fab.onclick = openAddModal; }
+  else if (tab === "auteurs") { fab.style.display = "flex"; fab.onclick = () => openModal("modal-auteur"); }
+  else if (tab === "wishlist") { fab.style.display = "flex"; fab.onclick = () => openModal("modal-wishlist"); }
+  else if (tab === "sorties") { fab.style.display = "flex"; fab.onclick = () => openModal("modal-sortie"); }
+  else fab.style.display = "none";
+  if (tab === "series") loadSeries();
+  if (tab === "auteurs") loadAuteurs();
+  if (tab === "wishlist") loadWishlist();
+  if (tab === "sorties") loadSorties();
+  if (tab === "stats") loadStats();
+}
+
+function openModal(id) { document.getElementById(id).classList.add("active"); document.body.style.overflow = "hidden"; }
+function closeModal(id) { document.getElementById(id).classList.remove("active"); document.body.style.overflow = ""; stopScan(); }
+function openAddModal() { openModal("modal-add"); }
+document.querySelectorAll(".modal-overlay").forEach(o => o.addEventListener("click", e => { if (e.target === o) closeModal(o.id); }));
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast" + (isError ? " error" : "") + " show";
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+function calcArgus(a) {
+  let score = 0, criteria = {};
+  if (a.edition_type === "tirage_tete") { score += 40; criteria["Tirage de tete"] = 40; }
+  else if (a.edition_type === "originale") { score += 30; criteria["Edition originale"] = 30; }
+  else if (a.edition_type === "collector") { score += 25; criteria["Edition collector"] = 25; }
+  else if (a.edition_type === "speciale") { score += 15; criteria["Edition speciale"] = 15; }
+  if (a.est_dedicace) { score += 25; criteria["Dedicace"] = 25; }
+  if (a.est_numerotee) { score += 15; criteria["Numerotee"] = 15; }
+  if (a.etat_physique === "neuf") { score += 10; criteria["Neuf"] = 10; }
+  else if (a.etat_physique === "bon") { score += 5; criteria["Bon etat"] = 5; }
+  else if (a.etat_physique === "mauvais") { score -= 10; criteria["Mauvais etat"] = -10; }
+  const age = a.annee ? new Date().getFullYear() - a.annee : 0;
+  if (age > 30) { score += 15; criteria["Anciennete 30+"] = 15; }
+  else if (age > 15) { score += 8; criteria["Anciennete 15+"] = 8; }
+  return { score: Math.max(0, Math.min(100, score)), criteria };
+}
+
+function argusColor(s) { return s >= 70 ? "var(--teal)" : s >= 40 ? "var(--yellow)" : "var(--text-muted)"; }
+
+function editionLabel(t) {
+  const m = { originale: "Originale", speciale: "Speciale", collector: "Collector", tirage_tete: "Tirage tete", integrale: "Integrale" };
+  return m[t] || "";
+}
+
+function lectureLabel(v) { return { non_lu: "Non lu", en_cours: "En cours", lu: "Lu" }[v] || v; }
+function etatLabel(v) { return { neuf: "Neuf", bon: "Bon", moyen: "Moyen", mauvais: "Mauvais" }[v] || v; }
+
+async function loadCollection() {
+  const { data, error } = await sb.from("albums").select("*").eq("user_id", UID).order("created_at", { ascending: false });
+  if (error) { showToast("Erreur chargement", true); console.error(error); return; }
+  allAlbums = data || [];
+  renderCollection(allAlbums);
+}
+
+function renderCollection(albums) {
+  const c = document.getElementById("collection-list");
+  if (!albums.length) {
+    c.innerHTML = `<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-title">Collection vide</div><div class="empty-sub">Appuie sur + pour ajouter ton premier album !</div></div>`;
+    return;
+  }
+  c.innerHTML = albums.map(a => {
+    const { score } = calcArgus(a);
+    const col = argusColor(score);
+    const el = editionLabel(a.edition_type);
+    const badges = [];
+    if (el) badges.push(`<span class="badge badge-yellow">${el}</span>`);
+    if (a.est_dedicace) badges.push(`<span class="badge badge-teal">Dedicace</span>`);
+    if (a.etat_lecture === "lu") badges.push(`<span class="badge badge-teal">Lu</span>`);
+    else if (a.etat_lecture === "en_cours") badges.push(`<span class="badge badge-yellow">En cours</span>`);
+    const cover = a.couverture_url ? `<img src="${a.couverture_url}" alt="" onerror="this.parentElement.innerHTML='📖'"/>` : "📖";
+    return `<div class="album-card" onclick="showDetail('${a.id}')">
+      <div class="album-cover">${cover}</div>
+      <div class="album-info">
+        <div class="album-title">${a.titre}${a.tome_numero ? " T." + a.tome_numero : ""}</div>
+        <div class="album-meta">${[a.auteur_nom, a.editeur, a.annee].filter(Boolean).join(" · ")}</div>
+        <div class="album-badges">${badges.join("")}</div>
+      </div>
+      <div class="argus-score"><div class="argus-value" style="color:${col}">${score}</div><div class="argus-label">Argus</div></div>
+    </div>`;
+  }).join("");
+}
+
+function filterCollection() {
+  const q = document.getElementById("col-search").value.toLowerCase();
+  let f = allAlbums;
+  if (currentFilter !== "all") {
+    if (["non_lu","en_cours","lu"].includes(currentFilter)) f = f.filter(a => a.etat_lecture === currentFilter);
+    else f = f.filter(a => a.genre === currentFilter);
+  }
+  if (q) f = f.filter(a => (a.titre||"").toLowerCase().includes(q) || (a.auteur_nom||"").toLowerCase().includes(q) || (a.editeur||"").toLowerCase().includes(q));
+  renderCollection(f);
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+  el.classList.add("active");
+  filterCollection();
+}
+
+async function showDetail(id) {
+  const a = allAlbums.find(x => x.id === id);
+  if (!a) return;
+  const { score, criteria } = calcArgus(a);
+  const col = argusColor(score);
+  const ebay = encodeURIComponent((a.titre || "") + " bd");
+  const lbc = encodeURIComponent(a.titre || "");
+  const cover = a.couverture_url ? `<img src="${a.couverture_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.parentElement.innerHTML='📖'"/>` : "📖";
+  const critHTML = Object.entries(criteria).map(([k,v]) => `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--teal)">+${v} pts</span></div>`).join("");
+  document.getElementById("detail-content").innerHTML = `
+    <div style="display:flex;gap:14px;margin-bottom:18px;">
+      <div style="width:90px;height:124px;border-radius:8px;background:var(--card-bg);display:flex;align-items:center;justify-content:center;font-size:38px;overflow:hidden;flex-shrink:0;">${cover}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:800;font-size:15px;margin-bottom:3px;line-height:1.3;">${a.titre}${a.tome_numero ? " T." + a.tome_numero : ""}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">${[a.auteur_nom, a.editeur, a.annee].filter(Boolean).join(" · ")}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          ${editionLabel(a.edition_type) ? `<span class="badge badge-yellow">${editionLabel(a.edition_type)}</span>` : ""}
+          ${a.est_dedicace ? `<span class="badge badge-teal">Dedicace</span>` : ""}
+          ${a.est_numerotee ? `<span class="badge badge-gray">Numerotee</span>` : ""}
+          ${a.genre ? `<span class="badge badge-gray">${a.genre}</span>` : ""}
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:14px;margin-bottom:12px;">
+      <div style="font-family:var(--font-display);font-size:15px;color:var(--yellow);margin-bottom:8px;">Score Argus — <span style="color:${col}">${score}/100</span></div>
+      <div style="height:7px;background:var(--navy);border-radius:4px;overflow:hidden;margin-bottom:10px;"><div style="width:${score}%;height:100%;background:${col};border-radius:4px;"></div></div>
+      ${critHTML || "<div style='font-size:12px;color:var(--text-muted)'>Edition standard</div>"}
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <a href="https://www.ebay.fr/sch/i.html?_nkw=${ebay}" target="_blank" style="flex:1;text-decoration:none;"><button class="btn btn-ghost btn-sm" style="width:100%;">eBay</button></a>
+        <a href="https://www.leboncoin.fr/recherche?text=${lbc}" target="_blank" style="flex:1;text-decoration:none;"><button class="btn btn-ghost btn-sm" style="width:100%;">Leboncoin</button></a>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div><div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:2px;">Lecture</div><div style="font-size:13px;font-weight:600;">${lectureLabel(a.etat_lecture)}</div></div>
+      <div><div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:2px;">Etat</div><div style="font-size:13px;font-weight:600;">${etatLabel(a.etat_physique)}</div></div>
+      ${a.localisation ? `<div><div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:2px;">Localisation</div><div style="font-size:13px;font-weight:600;">${a.localisation}</div></div>` : ""}
+      ${a.prix_achat ? `<div><div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:2px;">Prix achat</div><div style="font-size:13px;font-weight:600;">${a.prix_achat} EUR</div></div>` : ""}
+      ${a.note_perso ? `<div><div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:2px;">Note</div><div style="font-size:13px;font-weight:600;">${"⭐".repeat(a.note_perso)}</div></div>` : ""}
+      ${a.numero_exemplaire ? `<div><div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:2px;">N° exemplaire</div><div style="font-size:13px;font-weight:600;">${a.numero_exemplaire}</div></div>` : ""}
+    </div>
+    ${a.dedicace_detail ? `<div style="padding:10px;background:var(--navy);border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted);margin-bottom:10px;">✍️ ${a.dedicace_detail}</div>` : ""}
+    ${a.commentaire ? `<div style="padding:10px;background:var(--navy);border-radius:var(--radius-sm);font-size:13px;line-height:1.6;margin-bottom:12px;">${a.commentaire}</div>` : ""}
+    <button class="btn btn-primary" onclick="deleteAlbum('${a.id}')">🗑️ Supprimer</button>
+  `;
+  openModal("modal-detail");
+}
+
+async function deleteAlbum(id) {
+  if (!confirm("Supprimer cet album ?")) return;
+  await sb.from("albums").delete().eq("id", id);
+  closeModal("modal-detail");
+  showToast("Album supprime");
+  await loadCollection();
+}
+
+async function saveAlbum() {
+  const titre = document.getElementById("add-titre").value.trim();
+  if (!titre) { showToast("Le titre est requis !", true); return; }
+  const auteurNom = document.getElementById("add-auteur").value.trim();
+  const serieNom = document.getElementById("add-serie").value.trim();
+  let auteurId = null, serieId = null;
+  if (auteurNom) {
+    const { data: ea } = await sb.from("auteurs").select("id").eq("user_id", UID).eq("nom", auteurNom).maybeSingle();
+    if (ea) { auteurId = ea.id; }
+    else {
+      const { data: na } = await sb.from("auteurs").insert({ user_id: UID, nom: auteurNom, favori: false }).select().single();
+      if (na) auteurId = na.id;
+    }
+  }
+  if (serieNom) {
+    const { data: es } = await sb.from("series").select("id").eq("user_id", UID).eq("nom", serieNom).maybeSingle();
+    if (es) { serieId = es.id; }
+    else {
+      const { data: ns } = await sb.from("series").insert({ user_id: UID, nom: serieNom, genre: document.getElementById("add-genre").value }).select().single();
+      if (ns) serieId = ns.id;
+    }
+  }
+  const album = {
+    user_id: UID, titre,
+    tome_numero: parseInt(document.getElementById("add-tome").value) || null,
+    annee: parseInt(document.getElementById("add-annee").value) || null,
+    auteur_id: auteurId,
+    auteur_nom: auteurNom || null,
+    serie_id: serieId,
+    editeur: document.getElementById("add-editeur").value.trim() || null,
+    genre: document.getElementById("add-genre").value || null,
+    edition_type: document.getElementById("add-edition").value,
+    etat_lecture: document.getElementById("add-lecture").value,
+    etat_physique: document.getElementById("add-etat").value,
+    est_dedicace: document.getElementById("add-dedicace").checked,
+    dedicace_detail: document.getElementById("add-dedicace-detail").value.trim() || null,
+    est_numerotee: document.getElementById("add-numerotee").checked,
+    numero_exemplaire: document.getElementById("add-numero").value.trim() || null,
+    localisation: document.getElementById("add-localisation").value.trim() || null,
+    prix_achat: parseFloat(document.getElementById("add-prix").value) || null,
+    note_perso: parseInt(document.getElementById("add-note").value) || null,
+    commentaire: document.getElementById("add-commentaire").value.trim() || null,
+    couverture_url: lastCoverUrl || null,
+  };
+  const { error } = await sb.from("albums").insert(album);
+  if (error) { showToast("Erreur enregistrement", true); console.error(error); return; }
+  closeModal("modal-add"); resetAddForm(); showToast("Album ajoute !"); await loadCollection();
+}
+
+function resetAddForm() {
+  ["add-titre","add-tome","add-annee","add-auteur","add-serie","add-editeur","add-numero","add-localisation","add-prix","add-commentaire","add-dedicace-detail","isbn-input"].forEach(id => { const el = document.getElementById(id); if(el) el.value = ""; });
+  ["add-genre","add-edition","add-lecture","add-etat","add-note"].forEach(id => document.getElementById(id).selectedIndex = 0);
+  document.getElementById("add-dedicace").checked = false;
+  document.getElementById("add-numerotee").checked = false;
+  document.getElementById("ded-detail").style.display = "none";
+  document.getElementById("isbn-result").style.display = "none";
+  lastCoverUrl = null;
+}
+
+async function lookupISBN() {
+  const isbn = document.getElementById("isbn-input").value.trim();
+  if (!isbn) return;
+  showToast("Recherche en cours...");
+  try {
+    const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+    const d = await r.json();
+    const k = `ISBN:${isbn}`;
+    if (d[k]) { fillForm(d[k].title, d[k].authors?.[0]?.name, d[k].publishers?.[0]?.name, d[k].publish_date?.match(/\d{4}/)?.[0], d[k].cover?.medium); return; }
+  } catch(e) {}
+  try {
+    const r2 = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    const d2 = await r2.json();
+    if (d2.totalItems > 0) {
+      const info = d2.items[0].volumeInfo;
+      fillForm(info.title, info.authors?.[0], info.publisher, info.publishedDate?.match(/\d{4}/)?.[0], info.imageLinks?.thumbnail?.replace("http://","https://"));
+      return;
+    }
+  } catch(e) {}
+  showToast("ISBN non trouve", true);
+}
+
+function fillForm(titre, auteur, editeur, annee, cover) {
+  if (titre) document.getElementById("add-titre").value = titre;
+  if (auteur) document.getElementById("add-auteur").value = auteur;
+  if (editeur) document.getElementById("add-editeur").value = editeur;
+  if (annee) document.getElementById("add-annee").value = annee;
+  lastCoverUrl = cover || null;
+  const el = document.getElementById("isbn-result");
+  el.style.color = "var(--teal)";
+  el.innerHTML = cover ? `<div style="display:flex;align-items:center;gap:10px;"><img src="${cover}" style="height:60px;border-radius:5px;"/><strong>${titre}</strong></div>` : `<strong>${titre}</strong> trouve !`;
+  el.style.display = "block";
+  showToast("Album trouve !");
+}
+
+async function startScan() {
+  const video = document.getElementById("scan-video");
+  video.style.display = "block";
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    video.srcObject = scanStream;
+    if ("BarcodeDetector" in window) {
+      const det = new BarcodeDetector({ formats: ["ean_13","ean_8","code_128"] });
+      const iv = setInterval(async () => {
+        try {
+          const codes = await det.detect(video);
+          if (codes.length > 0) {
+            clearInterval(iv);
+            document.getElementById("isbn-input").value = codes[0].rawValue;
+            stopScan();
+            await lookupISBN();
+          }
+        } catch(e) {}
+      }, 500);
+    } else { showToast("Scanner non supporte, saisis l ISBN", true); stopScan(); }
+  } catch(e) { showToast("Camera refusee", true); video.style.display = "none"; }
+}
+
+function stopScan() {
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const v = document.getElementById("scan-video");
+  if (v) { v.style.display = "none"; v.srcObject = null; }
+}
+
+async function loadSeries() {
+  const { data: series } = await sb.from("series").select("*").eq("user_id", UID).order("nom");
+  const { data: albums } = await sb.from("albums").select("serie_id,tome_numero").eq("user_id", UID).not("serie_id","is",null);
+  const c = document.getElementById("series-list");
+  if (!series?.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-title">Aucune serie</div><div class="empty-sub">Les series apparaissent quand tu ajoutes des albums avec une serie.</div></div>`; return; }
+  c.innerHTML = series.map(s => {
+    const al = albums?.filter(a => a.serie_id === s.id) || [];
+    const tomes = al.map(a => a.tome_numero).filter(Boolean).sort((a,b) => a-b);
+    const total = s.nb_tomes_total || (tomes.length ? Math.max(...tomes) : 0);
+    const pct = total ? Math.round((tomes.length/total)*100) : 0;
+    const dots = (total > 0 && total <= 30) ? Array.from({length:total},(_,i) => `<div class="tome-dot ${tomes.includes(i+1)?"owned":"missing"}" title="T.${i+1}"></div>`).join("") : "";
+    const missing = [];
+    for (let i=1;i<=total;i++) if(!tomes.includes(i)) missing.push(i);
+    const statutMap = {en_cours:"En cours",terminee:"Terminee",abandonnee:"Abandonnee",en_pause:"En pause"};
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div><div style="font-weight:800;font-size:14px;">${s.nom}</div><div style="font-size:11px;color:var(--text-muted);">${s.genre||""}</div></div>
+        <span class="badge ${s.statut==="terminee"?"badge-teal":"badge-yellow"}">${statutMap[s.statut]||s.statut||"En cours"}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;background:var(--navy);border-radius:4px;height:7px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:var(--teal);border-radius:4px;"></div></div>
+        <div style="font-size:11px;font-weight:700;color:var(--teal);">${tomes.length}${total?"/"+total:""} tome${tomes.length>1?"s":""}</div>
+      </div>
+      ${dots ? `<div class="serie-progress">${dots}</div>` : ""}
+      ${missing.length>0&&total>0 ? `<div style="font-size:11px;color:var(--red);margin-top:6px;">Tomes manquants: ${missing.slice(0,10).join(", ")}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+async function loadAuteurs() {
+  const { data, error } = await sb.from("auteurs").select("*").eq("user_id", UID).order("nom");
+  if (error) { showToast("Erreur chargement auteurs", true); return; }
+  allAuteurs = data || [];
+  renderAuteurs(allAuteurs);
+}
+
+function renderAuteurs(auteurs) {
+  const c = document.getElementById("auteurs-list");
+  if (!auteurs.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-title">Aucun auteur</div><div class="empty-sub">Ajoute des auteurs pour suivre leurs nouvelles sorties. Les auteurs sont aussi crees automatiquement quand tu ajoutes un album.</div></div>`; return; }
+  c.innerHTML = auteurs.map(a => `
+    <div class="auteur-card">
+      <div class="auteur-avatar">${a.nom.charAt(0).toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:800;font-size:14px;">${a.nom}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${[a.nationalite, a.bio ? a.bio.substring(0,50)+"..." : ""].filter(Boolean).join(" · ")}</div>
+        ${a.favori ? `<span class="badge badge-yellow" style="margin-top:4px;">⭐ Favori</span>` : ""}
+      </div>
+      <button class="fav-btn" onclick="toggleFavori('${a.id}',${a.favori})" title="${a.favori?"Retirer des favoris":"Ajouter aux favoris"}">${a.favori?"⭐":"☆"}</button>
+    </div>
+  `).join("");
+}
+
+function filterAuteurs() {
+  const q = document.getElementById("aut-search").value.toLowerCase();
+  renderAuteurs(q ? allAuteurs.filter(a => a.nom.toLowerCase().includes(q)) : allAuteurs);
+}
+
+async function saveAuteur() {
+  const nom = document.getElementById("aut-nom").value.trim();
+  if (!nom) { showToast("Le nom est requis !", true); return; }
+  const { error } = await sb.from("auteurs").insert({ user_id: UID, nom, nationalite: document.getElementById("aut-nat").value.trim()||null, bio: document.getElementById("aut-bio").value.trim()||null, favori: document.getElementById("aut-favori").checked });
+  if (error) { showToast("Erreur", true); console.error(error); return; }
+  closeModal("modal-auteur");
+  ["aut-nom","aut-nat","aut-bio"].forEach(id => document.getElementById(id).value="");
+  document.getElementById("aut-favori").checked=false;
+  showToast("Auteur ajoute !"); await loadAuteurs();
+}
+
+async function toggleFavori(id, current) {
+  await sb.from("auteurs").update({ favori: !current }).eq("id", id);
+  await loadAuteurs();
+}
+
+async function loadWishlist() {
+  const { data } = await sb.from("wishlist").select("*").eq("user_id", UID).order("created_at", { ascending: false });
+  allWishlist = data || [];
+  renderWishlist(allWishlist);
+}
+
+function renderWishlist(items) {
+  const c = document.getElementById("wishlist-list");
+  if (!items.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-title">Wishlist vide</div><div class="empty-sub">Appuie sur + pour ajouter un album a acquerir !</div></div>`; return; }
+  c.innerHTML = items.map(w => {
+    const bc = w.priorite === "haute" ? "var(--red)" : w.priorite === "basse" ? "var(--card-border)" : "var(--teal)";
+    const ebay = encodeURIComponent((w.titre||"") + " bd");
+    const lbc = encodeURIComponent(w.titre||"");
+    const wid = w.id;
+    return `<div class="album-card" style="border-left:4px solid ${bc};">
+      <div class="album-cover">🛒</div>
+      <div class="album-info">
+        <div class="album-title">${w.titre||""}${w.tome_numero?" T."+w.tome_numero:""}</div>
+        <div class="album-meta">${[w.auteur,w.editeur,w.genre].filter(Boolean).join(" · ")}</div>
+        <div class="album-badges">
+          <span class="badge ${w.priorite==="haute"?"badge-red":w.priorite==="basse"?"badge-gray":"badge-teal"}">${w.priorite||"normale"}</span>
+          ${w.prix_max?`<span class="badge badge-yellow">Max ${w.prix_max}EUR</span>`:""}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:center;">
+        <a href="https://www.ebay.fr/sch/i.html?_nkw=${ebay}" target="_blank" style="text-decoration:none;"><button class="btn btn-ghost btn-sm">eBay</button></a>
+        <a href="https://www.leboncoin.fr/recherche?text=${lbc}" target="_blank" style="text-decoration:none;"><button class="btn btn-ghost btn-sm">LBC</button></a>
+        <button onclick="moveToCollection('${wid}')" style="background:var(--teal);border:none;border-radius:6px;color:var(--navy-dark);font-size:11px;font-weight:700;padding:5px 8px;cursor:pointer;">+Coll.</button>
+        <button onclick="deleteWishlist('${wid}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">🗑️</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function saveWishlist() {
+  const titre = document.getElementById("wl-titre").value.trim();
+  if (!titre) { showToast("Titre requis !", true); return; }
+  const { error } = await sb.from("wishlist").insert({ user_id: UID, titre, tome_numero: parseInt(document.getElementById("wl-tome").value)||null, genre: document.getElementById("wl-genre").value||null, auteur: document.getElementById("wl-auteur").value.trim()||null, editeur: document.getElementById("wl-editeur").value.trim()||null, prix_max: parseFloat(document.getElementById("wl-prix").value)||null, priorite: document.getElementById("wl-priorite").value, notes: document.getElementById("wl-notes").value.trim()||null });
+  if (error) { showToast("Erreur", true); console.error(error); return; }
+  closeModal("modal-wishlist");
+  ["wl-titre","wl-tome","wl-auteur","wl-editeur","wl-prix","wl-notes"].forEach(id => document.getElementById(id).value="");
+  document.getElementById("wl-genre").selectedIndex=0; document.getElementById("wl-priorite").selectedIndex=0;
+  showToast("Ajoute a la wishlist !"); await loadWishlist();
+}
+
+async function deleteWishlist(id) {
+  await sb.from("wishlist").delete().eq("id", id);
+  showToast("Supprime"); await loadWishlist();
+}
+
+async function moveToCollection(wid) {
+  const w = allWishlist.find(x => x.id === wid);
+  if (!w) return;
+  if (w.titre) document.getElementById("add-titre").value = w.titre;
+  if (w.auteur) document.getElementById("add-auteur").value = w.auteur;
+  if (w.editeur) document.getElementById("add-editeur").value = w.editeur;
+  if (w.genre) document.getElementById("add-genre").value = w.genre;
+  if (w.tome_numero) document.getElementById("add-tome").value = w.tome_numero;
+  await sb.from("wishlist").delete().eq("id", wid);
+  await loadWishlist();
+  openModal("modal-add");
+  showToast("Transfere vers la collection !");
+}
+
+async function loadSorties() {
+  const { data } = await sb.from("sorties").select("*").eq("user_id", UID).order("date_sortie", { ascending: true });
+  const c = document.getElementById("sorties-list");
+  const items = data || [];
+  if (!items.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-title">Aucune sortie</div><div class="empty-sub">Ajoute les prochaines sorties que tu attends !</div></div>`; return; }
+  c.innerHTML = items.map(s => {
+    const date = s.date_sortie ? new Date(s.date_sortie) : null;
+    const past = date && date < new Date();
+    return `<div class="sortie-card">
+      ${date ? `<div class="sortie-date" style="${past?"background:var(--text-muted)":""}"><div class="day">${date.getDate()}</div><div class="month">${date.toLocaleDateString("fr",{month:"short"})}</div></div>` : `<div class="sortie-date" style="background:var(--card-border)"><div class="day">?</div></div>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:800;font-size:13px;">${s.titre}</div>
+        ${s.auteur_serie?`<div style="font-size:11px;color:var(--text-muted);">${s.auteur_serie}</div>`:""}
+        ${s.notes?`<div style="font-size:11px;color:var(--text-muted);">${s.notes}</div>`:""}
+        ${past?`<div style="font-size:10px;color:var(--teal);margin-top:3px;">✓ Disponible</div>`:""}
+      </div>
+      <button onclick="deleteSortie('${s.id}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;">🗑️</button>
+    </div>`;
+  }).join("");
+}
+
+async function saveSortie() {
+  const titre = document.getElementById("so-titre").value.trim();
+  if (!titre) { showToast("Titre requis !", true); return; }
+  const { error } = await sb.from("sorties").insert({ user_id: UID, titre, date_sortie: document.getElementById("so-date").value||null, auteur_serie: document.getElementById("so-auteur").value.trim()||null, notes: document.getElementById("so-notes").value.trim()||null });
+  if (error) { showToast("Erreur", true); console.error(error); return; }
+  closeModal("modal-sortie");
+  ["so-titre","so-date","so-auteur","so-notes"].forEach(id => document.getElementById(id).value="");
+  showToast("Sortie ajoutee !"); await loadSorties();
+}
+
+async function deleteSortie(id) {
+  await sb.from("sorties").delete().eq("id", id);
+  showToast("Supprime"); await loadSorties();
+}
+
+async function loadStats() {
+  const { data: al } = await sb.from("albums").select("*").eq("user_id", UID);
+  const { data: se } = await sb.from("series").select("*").eq("user_id", UID);
+  const { data: au } = await sb.from("auteurs").select("*").eq("user_id", UID);
+  const albums = al||[], series = se||[], auteurs = au||[];
+  const lus = albums.filter(a => a.etat_lecture==="lu").length;
+  const rares = albums.filter(a => ["originale","tirage_tete"].includes(a.edition_type)).length;
+  const ded = albums.filter(a => a.est_dedicace).length;
+  const favs = auteurs.filter(a => a.favori).length;
+  const scores = albums.map(a => calcArgus(a).score);
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+  const invest = albums.reduce((s,a) => s+(a.prix_achat||0), 0);
+  const top3 = [...albums].sort((a,b) => calcArgus(b).score - calcArgus(a).score).slice(0,3);
+  document.getElementById("stats-content").innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value" style="color:var(--teal)">${albums.length}</div><div class="stat-label">Albums</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--yellow)">${series.length}</div><div class="stat-label">Series</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--red)">${lus}</div><div class="stat-label">Lus</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--teal)">${auteurs.length}</div><div class="stat-label">Auteurs</div></div>
+    </div>
+    <div class="card">
+      <div style="font-family:var(--font-display);font-size:15px;color:var(--yellow);margin-bottom:10px;">Ma collection</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">Editions rares</span><span style="font-weight:700;color:var(--yellow)">${rares} album${rares>1?"s":""}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">Dedicaces</span><span style="font-weight:700;color:var(--teal)">${ded} album${ded>1?"s":""}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">Auteurs favoris</span><span style="font-weight:700;color:var(--yellow)">${favs} auteur${favs>1?"s":""}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">Score Argus moyen</span><span style="font-weight:700;color:${argusColor(avg)}">${avg}/100</span></div>
+        ${invest ? `<div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">Total investi</span><span style="font-weight:700">${invest.toFixed(2)} EUR</span></div>` : ""}
+      </div>
+    </div>
+    ${top3.length ? `<div class="card"><div style="font-family:var(--font-display);font-size:15px;color:var(--yellow);margin-bottom:10px;">Top Argus</div>${top3.map((a,i) => { const s = calcArgus(a).score; return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--card-border);${i===top3.length-1?"border-bottom:none":""}"><div style="font-family:var(--font-display);font-size:18px;color:var(--text-muted);width:22px;">${i+1}</div><div style="flex:1;font-weight:700;font-size:13px;">${a.titre}</div><div style="font-family:var(--font-display);font-size:18px;color:${argusColor(s)}">${s}</div></div>`; }).join("")}</div>` : ""}
+  `;
+}
+</script>
+</body>
+</html>
